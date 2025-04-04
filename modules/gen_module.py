@@ -1,53 +1,66 @@
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Импортируем необходимые модули
-import random
-import logging
+# Python модуль для агента-стратега, который согласовывает передачу задания дальше по цепочке
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
+# Импорт необходимых библиотек
+from datetime import datetime
 
-# Описание модуля
-"""
-Модуль для генерации случайных идей для стартапов.
-"""
-
-# Словарь с категориями и идеями
-ideas = {
-    'финтех': [
-        'Платформа для микрокредитования с использованием блокчейн технологии',
-        'Мобильное приложение для инвестирования в криптовалюты',
-        'Сервис для быстрого перевода денег между разными валютами'
-    ],
-    'здоровье': [
-        'Приложение для отслеживания питания и физической активности',
-        'Сервис для онлайн-консультаций с врачами',
-        'Платформа для заказа лекарств с доставкой на дом'
-    ],
-    'образование': [
-        'Онлайн-платформа для обучения программированию',
-        'Мобильное приложение для изучения иностранных языков',
-        'Сервис для подготовки к ЕГЭ и ОГЭ онлайн'
-    ]
-}
-
-def generate_idea(category):
+class Task:
     """
-    Функция для генерации идеи стартапа в заданной категории.
+    Класс Task представляет собой задание, которое должно быть передано дальше по цепочке.
     """
-    # Логирование начала работы функции
-    logging.info(f'Начало генерации идеи в категории {category}')
-    
-    # Проверка наличия категории в словаре
-    if category not in ideas:
-        logging.error(f'Категория {category} не найдена')
-        return 'Категория не найдена'
-    
-    # Генерация случайной идеи
-    idea = random.choice(ideas[category])
-    
-    # Логирование результата
-    logging.info(f'Сгенерирована идея: {idea}')
-    
-    return idea
+    def __init__(self, task_name, task_description):
+        """
+        Инициализация задания с именем и описанием.
+        """
+        self.task_name = task_name
+        self.task_description = task_description
+        self.task_status = "Not started"
+        self.task_start_time = None
+        self.task_end_time = None
+
+    def start_task(self):
+        """
+        Метод для начала выполнения задания.
+        """
+        self.task_status = "In progress"
+        self.task_start_time = datetime.now()
+
+    def end_task(self):
+        """
+        Метод для завершения задания.
+        """
+        self.task_status = "Completed"
+        self.task_end_time = datetime.now()
+
+class Agent:
+    """
+    Класс Agent представляет собой агента, который согласовывает передачу задания дальше по цепочке.
+    """
+    def __init__(self, name):
+        """
+        Инициализация агента с именем.
+        """
+        self.name = name
+
+    def assign_task(self, task):
+        """
+        Метод для назначения задания агенту.
+        """
+        task.start_task()
+        print(f"Task '{task.task_name}' is assigned to agent '{self.name}'.")
+
+    def complete_task(self, task):
+        """
+        Метод для завершения задания агентом.
+        """
+        task.end_task()
+        print(f"Task '{task.task_name}' is completed by agent '{self.name}'.")
+
+    def pass_task(self, task, next_agent):
+        """
+        Метод для передачи задания следующему агенту.
+        """
+        self.complete_task(task)
+        next_agent.assign_task(task)
