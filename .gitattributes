@@ -1,0 +1,21 @@
+# Normalize line endings
+* text=auto
+
+# Python
+*.py diff=python
+
+# JSON
+*.json text eol=lf
+
+# Bash
+*.sh text eol=lf
+
+# VS Code config
+*.code-workspace text
+
+# Treat *.ipynb as binary (or text with clean diff tools)
+*.ipynb diff=jupyternotebook
+
+# Custom SACI AI-Log
+*.diff text
+*.patch text

@@ -1,0 +1,47 @@
+[user]
+    name = plyuschevmax
+    email = your_email@example.com  # ← замени на свой GitHub email
+
+[core]
+    editor = code --wait
+    autocrlf = input
+    eol = lf
+
+[pull]
+    rebase = false  # безопасное слияние по умолчанию
+
+[merge]
+    conflictstyle = diff3  # показывает базу конфликта при merge
+
+[push]
+    default = simple  # пушит только текущую ветку
+
+[credential]
+    helper = store  # сохраняет GitHub токен в файле
+
+[init]
+    defaultBranch = main
+
+[alias]
+    st = status
+    co = checkout
+    br = branch
+    ci = commit
+    last = log -1 HEAD
+    lg = log --oneline --graph --all --decorate
+
+[diff]
+    tool = vscode
+[difftool "vscode"]
+    cmd = code --wait --diff $LOCAL $REMOTE
+
+[merge]
+    tool = vscode
+[mergetool "vscode"]
+    cmd = code --wait $MERGED
+
+[rerere]
+    enabled = true  # запоминает, как ты решал конфликты
+
+[fetch]
+    prune = true  # удаляет ссылки на удалённые ветки, если они были удалены

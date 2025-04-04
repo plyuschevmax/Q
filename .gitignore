@@ -1,4 +1,51 @@
-.env
+# Python
 __pycache__/
-logs/
-agent.log
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env
+.env.*
+
+# Virtual Envs
+.venv/
+env/
+venv/
+
+# Logs & dumps
+*.log
+*.diff
+*.patch
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Git
+*.swp
+*.swo
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Node (если есть frontend)
+node_modules/
+*.tsbuildinfo
+
+# AI cache
+.cache/
+.cache/**
+
+# System
+.DS_Store
+Thumbs.db
+
+# Personal
+*.secret
+*.bak
+*.tmp
