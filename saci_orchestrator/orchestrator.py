@@ -122,8 +122,12 @@ class SACIOrchestrator:
         except Exception as e:
             print(f"[SACI] Ошибка при пуше кода в GitHub: {e}")
 
+import os
 import requests
 import base64
+import subprocess
+from datetime import datetime
+
 
 class GitHubAgent:
     def __init__(self, token, repo, username):
@@ -139,12 +143,8 @@ class GitHubAgent:
             "Accept": "application/vnd.github+json"
         }
 
-        # Получаем SHA текущей версии файла (если он уже существует)
         response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            sha = response.json()["sha"]
-        else:
-            sha = None
+        sha = response.json()["sha"] if response.status_code == 200 else None
 
         data = {
             "message": commit_message,
@@ -156,6 +156,84 @@ class GitHubAgent:
 
         response = requests.put(url, headers=headers, json=data)
         if response.status_code in [200, 201]:
-            print("✅ Файл успешно запушен в GitHub")
+            print(f"✅ Файл {path} успешно запушен в GitHub")
         else:
             print(f"❌ Ошибка push: {response.status_code} → {response.json()}")
+
+    def commit_from_bot(self, file, content, message):
+        url = f"{self.api_url}/{file}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/vnd.github+json"
+        }
+
+        response = requests.get(url, headers=headers)
+        sha = response.json().get("sha") if response.status_code == 200 else None
+
+        commit_msg = f"{message}\n\n🧠 SACI-Agent • {datetime.utcnow().isoformat()}Z"
+
+        data = {
+            "message": commit_msg,
+            "content": base64.b64encode(content.encode()).decode(),
+            "branch": "main"
+        }
+        if sha:
+            data["sha"] = sha
+
+        result = requests.put(url, headers=headers, json=data)
+        if result.status_code in [200, 201]:
+            print(f"✅ SACI-коммит успешно выполнен → {file}")
+        else:
+            print(f"❌ Ошибка коммита SACI ({result.status_code}): {result.json()}")
+
+    def sync_after_commit(self):
+        print("🔄 Синхронизация с GitHub...")
+
+        try:
+            # Автокоммит локальных изменений перед pull
+            subprocess.run(["git", "add", "."], check=True)
+            subprocess.run(["git", "commit", "-m", "SACI: автосохранение перед pull"], check=True)
+
+            output = subprocess.check_output(
+                ["git", "pull", "--no-rebase", "origin", "main"],
+                stderr=subprocess.STDOUT,
+                universal_newlines=True
+            )
+            print(f"✅ Pull успешен:\n{output}")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Ошибка pull:\n{e.output}")
+
+    def commit_with_log(self, file, content, message, log_file="SACI_LOG_TEMPLATE.md"):
+        self.commit_from_bot(file=file, content=content, message=message)
+
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
+        log_entry = (
+            "### 🧠 SACI-Agent\n"
+            f"🕒 {timestamp}\n"
+            f"🎯 {message}\n"
+            "🔄 Изменения:\n"
+            f"- `{file}` обновлён автоматически\n"
+        )
+
+        try:
+            if os.path.exists(log_file):
+                with open(log_file, "r", encoding="utf-8") as f:
+                    existing = f.read()
+            else:
+                existing = "# SACI Commit Log 📘\n"
+
+            updated_log = existing.strip() + "\n\n" + log_entry.strip() + "\n"
+
+            with open(log_file, "w", encoding="utf-8") as f:
+                f.write(updated_log)
+
+            self.commit_from_bot(
+                file=log_file,
+                content=updated_log,
+                message=f"Обновлён SACI-лог после коммита {file}"
+            )
+
+            self.sync_after_commit()
+
+        except Exception as e:
+            print(f"⚠️ Ошибка при обновлении SACI-лога: {e}")
