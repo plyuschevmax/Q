@@ -1,0 +1,52 @@
+--- a/saci_orchestrator/orchestrator.py
++++ b/saci_orchestrator/orchestrator.py
+@@ def execute_tasks(self) -> None:
+-        # Reset tasks after execution for the next iteration
+-        self.tasks = []
++        # Reset tasks after execution for the next iteration
++        self.tasks = []
++        # После успешного выполнения задач запускаем интеграцию с GitHub
++        self.integrate_with_github()
+@@ class SACIOrchestrator:
++    def integrate_with_github(self) -> None:
++        """
++        Интегрирует результаты работы оркестратора с GitHub.
++        Создает или обновляет файл ORCHESTRATOR_LOG.txt в репозитории, записывая текущую цель.
++        """
++        import os
++        try:
++            from github import Github
++        except ImportError:
++            print("[SACI Orchestrator] PyGithub не установлен. Установите его командой: pip install PyGithub")
++            return
++
++        token = os.getenv("GITHUB_TOKEN")
++        username = os.getenv("GITHUB_USERNAME")
++        repo_name = os.getenv("GITHUB_REPO")
++
++        if not token or not username or not repo_name:
++            print("[SACI Orchestrator] Не заданы все переменные окружения для GitHub (GITHUB_TOKEN, GITHUB_USERNAME, GITHUB_REPO).")
++            return
++
++        try:
++            g = Github(token)
++            user = g.get_user(username)
++            repo = user.get_repo(repo_name)
++        except Exception as e:
++            print(f"[SACI Orchestrator] Ошибка подключения к GitHub: {e}")
++            return
++
++        filename = "ORCHESTRATOR_LOG.txt"
++        content = f"Updated orchestrator tasks for goal: {self.current_goal}\n"
++
++        try:
++            file = repo.get_contents(filename)
++            new_content = file.decoded_content.decode() + content
++            repo.update_file(filename, "Update orchestrator log", new_content, file.sha)
++            print("[SACI Orchestrator] Файл ORCHESTRATOR_LOG.txt обновлен в репозитории GitHub.")
++        except Exception as e:
++            try:
++                repo.create_file(filename, "Create orchestrator log", content)
++                print("[SACI Orchestrator] Файл ORCHESTRATOR_LOG.txt создан в репозитории GitHub.")
++            except Exception as ce:
++                print(f"[SACI Orchestrator] Не удалось создать или обновить файл в GitHub: {ce}")

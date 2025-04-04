@@ -121,11 +121,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Напиши /new_module, чтобы начать.")
 
+
+
+async def handle_sprint(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text("⚠️ Использование: /sprint <цель> <минут>")
+            return
+        goal = " ".join(args[:-1])
+        minutes = int(args[-1])
+        await update.message.reply_text(f"🚀 Запускаю спринт: '{goal}' на {minutes} минут...")
+
+        agents = [
+            Strategist(), Architect(), ProjectManager(),
+            Developer(), Tester(), Deployer(), MetricsMaster()
+        ]
+        data = {"goal": goal}
+        iteration = 1
+        end_time = time.time() + minutes * 60
+
+        while time.time() < end_time:
+            for agent in agents:
+                data = agent.execute(data)
+                await update.message.reply_text(f"✅ {agent.__class__.__name__} завершил итерацию {iteration}.")
+            iteration += 1
+            break
+
+        await update.message.reply_text("🏁 Спринт завершён.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка спринта: {e}")
 def main():
     bootstrap_workspace()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("new_module", new_module))
+    app.add_handler(CommandHandler("sprint", handle_sprint))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("🤖 Бот запущен")
     app.run_polling()

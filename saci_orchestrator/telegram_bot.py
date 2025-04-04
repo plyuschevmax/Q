@@ -1,7 +1,7 @@
 import logging
 
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 from saci_orchestrator.orchestrator import SACIOrchestrator
 
@@ -9,30 +9,28 @@ logging.basicConfig(level=logging.INFO)
 
 class TelegramBot:
     def __init__(self, token: str):
-        self.updater = Updater(token, use_context=True)
-        self.dispatcher = self.updater.dispatcher
         self.orchestrator = SACIOrchestrator()
+        self.application = Application.builder().token(token).build()
 
         # Обработчик команды /start
-        self.dispatcher.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("start", self.start))
         # Обработчик текстовых сообщений
-        self.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, self.handle_message))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
 
-    def start(self, update: Update, context: CallbackContext):
-        update.message.reply_text("Привет! Отправь описание технологии, которую хочешь разработать.")
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("Привет! Отправь описание технологии, которую хочешь разработать.")
 
-    def handle_message(self, update: Update, context: CallbackContext):
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_goal = update.message.text
         # Передаем цель в SACI-оркестратор
         self.orchestrator.set_goal(user_goal)
         tasks = self.orchestrator.plan_tasks()
 
         response = "Цель установлена. План задач:\n" + "\n".join(f"{i+1}. {task}" for i, task in enumerate(tasks))
-        update.message.reply_text(response)
+        await update.message.reply_text(response)
 
     def run(self):
-        self.updater.start_polling()
-        self.updater.idle()
+        self.application.run_polling()
 
 if __name__ == "__main__":
     # Замените на свой токен Telegram Bot
