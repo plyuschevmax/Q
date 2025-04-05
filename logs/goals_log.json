@@ -1,0 +1,56 @@
+[
+    {
+        "status": "done",
+        "goal": "Добавить тестовый модуль: tests/test_patch_predictor.py",
+        "timestamp": "2025-04-05 11:28"
+    },
+    {
+        "goal": "Добавить тестовый модуль: tests/test_patch_predictor.py",
+        "status": "complete",
+        "timestamp": "2025-04-05 11:56",
+        "dev_done": true,
+        "test_done": true
+    },
+    {
+        "goal": "Создать agent_hub.py — координатор между стратегами, девелопером и тестером",
+        "status": "done",
+        "timestamp": "2025-04-05 12:38",
+        "dev_done": true,
+        "test_done": false
+    },
+    {
+        "goal": "Создать agent_hub.py — координатор между стратегами, девелопером и тестером",
+        "status": "complete",
+        "timestamp": "2025-04-05 12:43",
+        "dev_done": true,
+        "test_done": false
+    },
+    {
+        "goal": "Оптимизировать структуру core/ и создать saci_memory.py для хранения состояния",
+        "status": "done",
+        "timestamp": "2025-04-05 12:50",
+        "dev_done": true,
+        "test_done": false
+    },
+    {
+        "goal": "Оптимизировать структуру core/ и создать saci_memory.py для хранения состояния",
+        "status": "in_progress",
+        "timestamp": "2025-04-05 12:50",
+        "dev_done": true,
+        "test_done": false
+    },
+    {
+        "type": "patch",
+        "patch": "auto_patch_2025-04-05_11-25",
+        "status": "applied",
+        "agreed": true,
+        "timestamp": "2025-04-05 19:33"
+    },
+    {
+        "type": "patch",
+        "patch": "auto_patch_2025-04-05_11-25",
+        "status": "applied",
+        "agreed": true,
+        "timestamp": "2025-04-05 19:38"
+    }
+]

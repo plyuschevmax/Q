@@ -1,0 +1,121 @@
+{
+    ".": [
+        "saci_web_orchestrator.py",
+        "fix_goal_state.py",
+        "telegram_bot.py",
+        "saci_goal_state.json",
+        "goal_pipeline.py",
+        "test_push_main.py",
+        "saci_memory.py",
+        "goal_pipeline_local_test.py",
+        "SACI_LOG_TEMPLATE.md",
+        "patch_in_place.py",
+        "README.md",
+        "saci_remote_agent.py",
+        "main.py",
+        "agent_hub.py"
+    ],
+    "saci_orchestrator": [
+        "__init__.py",
+        "orchestrator.py"
+    ],
+    "logs": [
+        "commit_meta.json",
+        "saci_code_chunks.json",
+        "code_metrics.json",
+        "goals_log.json",
+        "saci_file_map.json",
+        "saci_project_map.json"
+    ],
+    "static": [],
+    "tests": [
+        "test_patch_predictor.py"
+    ],
+    "core": [
+        "saci_protocol.py",
+        "saci_memory.py"
+    ],
+    "saci_site": [],
+    "agents": [
+        "code_refactor.py",
+        "architect.py",
+        "metrics_master.py",
+        "file_splitter_tree.py",
+        "telegram_bot.py",
+        "file_splitter.py",
+        "code_analyst.py",
+        "deployer.py",
+        "project_manager.py",
+        "code_metrics.py",
+        "goal_runner.py",
+        "repair_commit_with_log.py",
+        "strategist.py",
+        "developer.py",
+        "saci_contact_bot.py",
+        "tester.py",
+        "agent_hub.py"
+    ],
+    "scripts": [
+        "auto_loop.py",
+        "module_gen_interactive.py",
+        "module_gen.py"
+    ],
+    "patches": [],
+    "patches/repaired": [],
+    "modules": [
+        "gen_module.py"
+    ],
+    "vendor": [],
+    "vendor/tree-sitter-python": [
+        "package-lock.json",
+        "README.md",
+        "setup.py",
+        "tree-sitter.json",
+        "package.json"
+    ],
+    "vendor/tree-sitter-python/src": [
+        "node-types.json",
+        "grammar.json"
+    ],
+    "vendor/tree-sitter-python/src/tree_sitter": [],
+    "vendor/tree-sitter-python/test": [],
+    "vendor/tree-sitter-python/test/highlight": [
+        "keywords.py",
+        "pattern_matching.py",
+        "parameters.py"
+    ],
+    "vendor/tree-sitter-python/test/corpus": [],
+    "vendor/tree-sitter-python/test/tags": [
+        "main.py"
+    ],
+    "vendor/tree-sitter-python/bindings": [],
+    "vendor/tree-sitter-python/bindings/python": [],
+    "vendor/tree-sitter-python/bindings/python/tests": [
+        "test_binding.py"
+    ],
+    "vendor/tree-sitter-python/bindings/python/tree_sitter_python": [
+        "__init__.py"
+    ],
+    "vendor/tree-sitter-python/bindings/swift": [],
+    "vendor/tree-sitter-python/bindings/swift/TreeSitterPython": [],
+    "vendor/tree-sitter-python/bindings/swift/TreeSitterPythonTests": [],
+    "vendor/tree-sitter-python/bindings/c": [],
+    "vendor/tree-sitter-python/bindings/node": [],
+    "vendor/tree-sitter-python/bindings/rust": [],
+    "vendor/tree-sitter-python/bindings/go": [],
+    "vendor/tree-sitter-python/examples": [
+        "crlf-line-endings.py",
+        "tabs.py",
+        "simple-statements-without-trailing-newline.py",
+        "python2-grammar-crlf.py",
+        "python3-grammar-crlf.py",
+        "mixed-spaces-tabs.py",
+        "trailing-whitespace.py",
+        "multiple-newlines.py",
+        "python2-grammar.py",
+        "compound-statement-without-trailing-newline.py",
+        "python3-grammar.py",
+        "python3.8_grammar.py"
+    ],
+    "vendor/tree-sitter-python/queries": []
+}
