@@ -1,25 +1,56 @@
-import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from agents.code_refactor import generate_patch_review
-import os
-import sys
+# 📦 Стандартная библиотека
+import glob
 import json
-import time
+import os
 import subprocess
+import sys
+import time
 from datetime import datetime
-from goal_pipeline import process_scan, process_accept, process_reject, get_status
+
+import telebot
+# 🌐 Внешние зависимости
 from dotenv import load_dotenv
-from agents.code_refactor import (
-    generate_all_reviews_markdown,
-    send_review_markdown_to_telegram
-)
-sys.path.append(os.path.abspath("."))
+from telebot.types import (InlineKeyboardButton, InlineKeyboardMarkup,
+                           KeyboardButton, ReplyKeyboardMarkup)
+
+from agents.code_metrics import collect_code_metrics
+# 🤖 SACI локальные модули
+from agents.code_refactor import (generate_all_reviews_markdown,
+                                  generate_patch_review,
+                                  send_review_markdown_to_telegram)
+from agents.project_manager import generate_summary_rich
+from goal_pipeline import (get_status, process_accept, process_reject,
+                           process_scan)
+from scripts.saci_import_fixer import fix_imports_in_file
 from utils.gpt_sanitizer import split_into_safe_chunks
+
+sys.path.append(os.path.abspath("."))
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
+
+SACI_MODE_PATH = "config/saci_mode.txt"
+
+@bot.message_handler(commands=['settings'])
+def settings(message):
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("⚡️ Автоматический", callback_data="mode:lite"),
+        InlineKeyboardButton("👁️ Полуавтоматический", callback_data="mode:manual")
+    )
+    bot.send_message(message.chat.id, f"🛠 Режим SACI: `{get_saci_mode()}`", reply_markup=markup, parse_mode="Markdown")
+
+def get_saci_mode():
+    if os.path.exists("config/saci_mode.txt"):
+        with open(SACI_MODE_PATH, "r") as f:
+            return f.read().strip()
+    return "lite"
+
+def set_saci_mode(mode):
+    os.makedirs("config", exist_ok=True)
+    with open("config/saci_mode.txt", "w") as f:
+        f.write(mode)
 
 def safe_patch_slice(patch_text, max_chars=3000):
     lines = patch_text.splitlines(keepends=True)
@@ -32,11 +63,20 @@ def safe_patch_slice(patch_text, max_chars=3000):
         total += len(line)
     return result
 
-def saci_run(module: str):
-    try:
-        subprocess.Popen(["python", "-m", module])
-    except Exception as e:
-        print(f"❌ Ошибка запуска модуля {module}: {e}")
+def saci_run(module: str, target_file: str = None):
+    import subprocess
+    import os
+    import time
+
+    print(f"🚀 SACI запускает: {module}")
+    
+    # 🧼 Auto-format (isort + black)
+    if target_file and os.path.exists(target_file):
+        print(f"🧹 Применяю isort и black к: {target_file}")
+        subprocess.run(["isort", target_file])
+        subprocess.run(["black", target_file])
+
+    subprocess.Popen(["python", "-m", module])
 
 def send_long_text(chat_id, header, body, chunk_limit=3900):
     paragraphs = body.split("\n\n")
@@ -85,8 +125,8 @@ def patch_panel(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
-    import glob
     data = call.data
+    CURRENT_MODE = get_saci_mode()
 
     def get_latest_patch_name():
         patch_files = sorted([
@@ -103,7 +143,6 @@ def handle_callback(call):
 
     elif data == "test:last":
         bot.send_message(call.message.chat.id, "🧪 Запускаю тесты...")
-        import subprocess
         try:
             result = subprocess.run(
                 ["python", "-m", "unittest", "discover", "tests"],
@@ -164,8 +203,6 @@ def handle_callback(call):
                 bot.send_message(call.message.chat.id, f"✅ Патч `{patch}` применён.")
 
                 # Генерация ревью и отправка
-                generate_all_reviews_markdown(patch)
-                send_review_markdown_to_telegram(patch)
 
                 markup = InlineKeyboardMarkup()
                 markup.add(
@@ -260,7 +297,6 @@ def status(message):
 @bot.message_handler(commands=['summary'])
 def summary(message):
     try:
-        from agents.project_manager import generate_summary_rich
         text = generate_summary_rich()
         bot.send_message(message.chat.id, text)
     except Exception as e:
@@ -349,13 +385,17 @@ def handle_callback(call):
         subprocess.Popen(["python", "-m", "agents.code_refactor"])
 
     elif data == "review_file:last":
-        import glob
         latest = sorted(glob.glob("logs/patch_reviews/*.md"))[-1]
         if latest:
             with open(latest, "rb") as f:
                 bot.send_document(call.message.chat.id, f, caption="📘 Последнее ревью")
         else:
             bot.send_message(call.message.chat.id, "⚠️ Ревью не найдено.")
+
+    elif data.startswith("mode:"):
+        mode = data.split(":")[1]
+        set_saci_mode(mode)
+        bot.send_message(call.message.chat.id, f"✅ Режим SACI установлен: `{mode}`", parse_mode="Markdown")
 
     elif data.startswith("review:last"):
         latest = sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
@@ -387,8 +427,6 @@ def handle_callback(call):
             bot.send_message(call.message.chat.id, f"✅ Патч `{patch}` применён.")
 
             # 📄 Сгенерировать .md ревью от всех агентов
-            generate_all_reviews_markdown(patch)
-            send_review_markdown_to_telegram(patch)
 
             # 👍 Предложить согласование
             markup = InlineKeyboardMarkup()

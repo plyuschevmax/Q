@@ -24,6 +24,54 @@ PATCH_DIR = "patches"
 
 CHUNKS_PATH = "logs/saci_code_chunks.json"
 
+def build_project_context():
+    context = ["# 🧠 SACI Project Context\n"]
+
+    # 1. Структура проекта
+    try:
+        with open("logs/saci_project_map.json", "r", encoding="utf-8") as f:
+            structure = json.load(f)
+        context.append("## 📁 Структура проекта\n")
+        for folder, files in structure.items():
+            if not files: continue
+            context.append(f"- `{folder}/`")
+            for file in files:
+                context.append(f"  - {file}")
+        context.append("")
+    except:
+        context.append("⚠️ Нет данных по структуре\n")
+
+    # 2. Последняя цель
+    try:
+        with open("saci_goal_state.json", "r", encoding="utf-8") as f:
+            goal_state = json.load(f)
+        context.append("## 🎯 Текущая цель")
+        context.append(f"- Goal: {goal_state.get('goal', '—')}")
+        context.append(f"- Status: {goal_state.get('status', '—')}")
+        context.append("")
+    except:
+        context.append("⚠️ Нет текущей цели\n")
+
+    # 3. Последние 3 цели из goals_log
+    try:
+        with open("logs/goals_log.json", "r", encoding="utf-8") as f:
+            log = json.load(f)
+        context.append("## 🧾 Последние цели из журнала")
+        for g in log[-3:]:
+            context.append(f"- {g.get('timestamp')} → {g.get('goal', g.get('patch', '—'))} [{g.get('status', '—')}]")
+        context.append("")
+    except:
+        context.append("⚠️ Нет журнала целей\n")
+
+    # 4. Общая цель SACI
+    context.append("## 🤖 Цель SACI")
+    context.append("- Получать текстовую цель")
+    context.append("- Генерировать модуль")
+    context.append("- Делать ревью")
+    context.append("- Применять и логировать patch\n")
+
+    return "\n".join(context)
+
 def safe_patch_slice(text, max_chars=2500):
     lines = text.splitlines(keepends=True)
     result = ""
@@ -60,6 +108,8 @@ def run_multi_pass_refactor():
 
     print(f"✅ Объединённый патч сохранён: {filename}")
     send_patch_with_buttons(filename)
+    generate_all_reviews_markdown(filename)
+    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
 
 def split_chunks_into_batches(chunks: dict, batch_size: int = 25):
     keys = list(chunks.keys())
@@ -183,6 +233,8 @@ def send_patch_with_reviews(filename):
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def send_patch_with_buttons(filename):
+    generate_all_reviews_markdown(filename)
+    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
     base = filename.replace(".diff", "").replace(".patch", "")
 
     markup = InlineKeyboardMarkup(row_width=2)
@@ -321,6 +373,8 @@ def run_refactor():
     filename, path = save_patch(patch_text)
     
     send_patch_with_buttons(filename)
+    generate_all_reviews_markdown(filename)
+    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
 
 if __name__ == "__main__":
     import sys
