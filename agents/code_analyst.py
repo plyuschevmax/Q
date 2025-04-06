@@ -22,6 +22,7 @@ def load_file_map():
     with open(FILE_MAP_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 def analyze_code_with_gpt(filename, content):
     prompt = f"""
 Ты — AI-код-ревьюер SACI. Проанализируй файл `{filename}`. Дай рекомендации по:
@@ -39,14 +40,15 @@ def analyze_code_with_gpt(filename, content):
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "Ты — AI-архитектор SACI."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=600
+            max_tokens=600,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"❌ Ошибка GPT: {e}"
+
 
 def send_to_telegram(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -56,6 +58,7 @@ def send_to_telegram(text):
         print("📬 Анализ отправлен в Telegram.")
     else:
         print(f"❌ Ошибка Telegram: {response.status_code} {response.text}")
+
 
 def run_analysis(all_files=False):
     print("🧠 Запуск анализа кода...")
@@ -75,6 +78,8 @@ def run_analysis(all_files=False):
         result = analyze_code_with_gpt(filename, content)
         send_to_telegram(f"📄 Анализ `{filename}`:\n\n{result}")
 
+
 if __name__ == "__main__":
     import sys
+
     run_analysis(all_files="all" in sys.argv)

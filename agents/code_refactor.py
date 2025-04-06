@@ -6,9 +6,9 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 from dotenv import load_dotenv
 import subprocess  # для автоматического запуска remote_agent / splitter
-from agents.file_splitter import split_all_py_files  # если резервный split используется
 import sys
 import os
+
 sys.path.append(os.path.abspath("."))
 
 
@@ -24,53 +24,6 @@ PATCH_DIR = "patches"
 
 CHUNKS_PATH = "logs/saci_code_chunks.json"
 
-def build_project_context():
-    context = ["# 🧠 SACI Project Context\n"]
-
-    # 1. Структура проекта
-    try:
-        with open("logs/saci_project_map.json", "r", encoding="utf-8") as f:
-            structure = json.load(f)
-        context.append("## 📁 Структура проекта\n")
-        for folder, files in structure.items():
-            if not files: continue
-            context.append(f"- `{folder}/`")
-            for file in files:
-                context.append(f"  - {file}")
-        context.append("")
-    except:
-        context.append("⚠️ Нет данных по структуре\n")
-
-    # 2. Последняя цель
-    try:
-        with open("saci_goal_state.json", "r", encoding="utf-8") as f:
-            goal_state = json.load(f)
-        context.append("## 🎯 Текущая цель")
-        context.append(f"- Goal: {goal_state.get('goal', '—')}")
-        context.append(f"- Status: {goal_state.get('status', '—')}")
-        context.append("")
-    except:
-        context.append("⚠️ Нет текущей цели\n")
-
-    # 3. Последние 3 цели из goals_log
-    try:
-        with open("logs/goals_log.json", "r", encoding="utf-8") as f:
-            log = json.load(f)
-        context.append("## 🧾 Последние цели из журнала")
-        for g in log[-3:]:
-            context.append(f"- {g.get('timestamp')} → {g.get('goal', g.get('patch', '—'))} [{g.get('status', '—')}]")
-        context.append("")
-    except:
-        context.append("⚠️ Нет журнала целей\n")
-
-    # 4. Общая цель SACI
-    context.append("## 🤖 Цель SACI")
-    context.append("- Получать текстовую цель")
-    context.append("- Генерировать модуль")
-    context.append("- Делать ревью")
-    context.append("- Применять и логировать patch\n")
-
-    return "\n".join(context)
 
 def safe_patch_slice(text, max_chars=2500):
     lines = text.splitlines(keepends=True)
@@ -83,9 +36,9 @@ def safe_patch_slice(text, max_chars=2500):
         total += len(line)
     return result
 
+
 def run_multi_pass_refactor():
     subprocess.run(["python", "saci_remote_agent.py"])
-    subprocess.run(["python", "-m", "agents.file_splitter_tree"])
 
     with open("logs/saci_code_chunks.json", "r", encoding="utf-8") as f:
         chunks = json.load(f)
@@ -108,19 +61,22 @@ def run_multi_pass_refactor():
 
     print(f"✅ Объединённый патч сохранён: {filename}")
     send_patch_with_buttons(filename)
-    generate_all_reviews_markdown(filename)
-    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
+
 
 def split_chunks_into_batches(chunks: dict, batch_size: int = 25):
     keys = list(chunks.keys())
-    return [dict((k, chunks[k]) for k in keys[i:i+batch_size]) for i in range(0, len(keys), batch_size)]
+    return [
+        dict((k, chunks[k]) for k in keys[i : i + batch_size])
+        for i in range(0, len(keys), batch_size)
+    ]
+
 
 def generate_all_reviews_markdown(patch_name):
     agents = {
         "architect": "🧠 Architect",
         "developer": "👨‍💻 Developer",
         "tester": "🧪 Tester",
-        "strategist": "🎯 Strategist"
+        "strategist": "🎯 Strategist",
     }
 
     md = f"# 🔍 Patch Review — `{patch_name}`\n\n---\n"
@@ -136,6 +92,7 @@ def generate_all_reviews_markdown(patch_name):
 
     return path
 
+
 def send_review_markdown_to_telegram(patch_name):
     path = f"logs/patch_reviews/{patch_name}.md"
     if not os.path.exists(path):
@@ -147,9 +104,10 @@ def send_review_markdown_to_telegram(patch_name):
         data = {
             "chat_id": CHAT_ID,
             "caption": f"📄 Общее ревью от всех агентов по `{patch_name}`",
-            "parse_mode": "Markdown"
+            "parse_mode": "Markdown",
         }
         requests.post(url, files=files, data=data)
+
 
 def generate_patch_review(patch_name, agent="architect"):
     patch_path = None
@@ -169,7 +127,7 @@ def generate_patch_review(patch_name, agent="architect"):
         "architect": "Ты — архитектурный AI, оцениваешь стратегически.",
         "developer": "Ты — опытный Python-разработчик SACI.",
         "tester": "Ты — AI-тестировщик, ищешь слабые места.",
-        "strategist": "Ты — AI-стратег, смотришь на пользу в будущем."
+        "strategist": "Ты — AI-стратег, смотришь на пользу в будущем.",
     }.get(agent, "Ты — AI-помощник.")
 
     prompt = f"""
@@ -185,13 +143,14 @@ def generate_patch_review(patch_name, agent="architect"):
         model="gpt-4",
         messages=[
             {"role": "system", "content": persona},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
         temperature=0.4,
-        max_tokens=400
+        max_tokens=400,
     )
 
-    return response['choices'][0]['message']['content'].strip()
+    return response["choices"][0]["message"]["content"].strip()
+
 
 def generate_all_patch_reviews(patch_name):
     agents = ["architect", "developer", "tester", "strategist"]
@@ -200,6 +159,7 @@ def generate_all_patch_reviews(patch_name):
         review = generate_patch_review(patch_name, agent)
         results[agent] = review
     return results
+
 
 def send_patch_with_reviews(filename):
     base = filename.replace(".patch", "").replace(".diff", "")
@@ -211,39 +171,51 @@ def send_patch_with_reviews(filename):
         InlineKeyboardButton("✅ Применить", callback_data=f"apply:{base}"),
     )
     markup.row(
-        InlineKeyboardButton("🧠 Architect", callback_data=f"view_rev:{base}:architect"),
-        InlineKeyboardButton("👨‍💻 Developer", callback_data=f"view_rev:{base}:developer"),
+        InlineKeyboardButton(
+            "🧠 Architect", callback_data=f"view_rev:{base}:architect"
+        ),
+        InlineKeyboardButton(
+            "👨‍💻 Developer", callback_data=f"view_rev:{base}:developer"
+        ),
         InlineKeyboardButton("🧪 Tester", callback_data=f"view_rev:{base}:tester"),
-        InlineKeyboardButton("🎯 Strategist", callback_data=f"view_rev:{base}:strategist"),
+        InlineKeyboardButton(
+            "🎯 Strategist", callback_data=f"view_rev:{base}:strategist"
+        ),
     )
 
-    review_text = "\n".join([
-        f"*{agent.title()}*:\n{review[:200]}" for agent, review in reviews.items()
-    ])
+    review_text = "\n".join(
+        [f"*{agent.title()}*:\n{review[:200]}" for agent, review in reviews.items()]
+    )
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
         "text": f"📦 GPT-патч `{filename}`\n\n🧠 Ревью агентов:\n\n{review_text}\n\nВыбери действие ниже:",
         "reply_markup": json.dumps(markup.to_dict()),
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
     }
     requests.post(url, json=payload)
 
+
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+
 def send_patch_with_buttons(filename):
-    generate_all_reviews_markdown(filename)
-    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
     base = filename.replace(".diff", "").replace(".patch", "")
 
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("📄 Просмотреть", callback_data=f"review:{base}"),
         InlineKeyboardButton("✅ Применить", callback_data=f"apply:{base}"),
-        InlineKeyboardButton("🧠 Architect", callback_data=f"review_agent:{base}:architect"),
-        InlineKeyboardButton("👨‍💻 Developer", callback_data=f"review_agent:{base}:developer"),
-        InlineKeyboardButton("🎯 Strategist", callback_data=f"review_agent:{base}:strategist")
+        InlineKeyboardButton(
+            "🧠 Architect", callback_data=f"review_agent:{base}:architect"
+        ),
+        InlineKeyboardButton(
+            "👨‍💻 Developer", callback_data=f"review_agent:{base}:developer"
+        ),
+        InlineKeyboardButton(
+            "🎯 Strategist", callback_data=f"review_agent:{base}:strategist"
+        ),
     )
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -251,10 +223,11 @@ def send_patch_with_buttons(filename):
         "chat_id": CHAT_ID,
         "text": f"📦 GPT предложил патч: `{filename}`\n\n📎 Выбери действие:",
         "reply_markup": json.dumps(markup.to_dict()),
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
     }
 
     requests.post(url, json=payload)
+
 
 def load_chunks():
     # По умолчанию — Tree-sitter
@@ -266,14 +239,19 @@ def load_chunks():
         print("⚠️ Чанки Tree-sitter не найдены. Используется старый split.")
         with open("logs/saci_file_map.json", "r", encoding="utf-8") as f:
             file_map = json.load(f)
-        return split_all_py_files(file_map)  # ← если есть функция-резерв
+
+
+# removed call to split_all_py_files (module was deleted)
+
 
 def generate_patch_prompt(file_map):
-    file_bundle = "\n\n".join([
-        f"### {fname}\n```python\n{content[:1500]}\n```"
-        for fname, content in file_map.items()
-        if fname.endswith(".py")
-    ])
+    file_bundle = "\n\n".join(
+        [
+            f"### {fname}\n```python\n{content[:1500]}\n```"
+            for fname, content in file_map.items()
+            if fname.endswith(".py")
+        ]
+    )
     return f"""
 Ты — AI-архитектор SACI. Проанализируй следующий код и предложи улучшения в формате unified diff (git diff).
 
@@ -283,8 +261,11 @@ def generate_patch_prompt(file_map):
 {file_bundle}
 """
 
+
 def request_gpt_patch(chunks_batch):
-    prompt = "Ты — AI-архитектор. Вот чанки кода. Предложи patch в формате unified diff:\n\n"
+    prompt = (
+        "Ты — AI-архитектор. Вот чанки кода. Предложи patch в формате unified diff:\n\n"
+    )
     for name, code in chunks_batch.items():
         sliced = code[:2000]
         prompt += f"### {name} ###\n```\n{sliced}\n```\n\n"
@@ -294,19 +275,25 @@ def request_gpt_patch(chunks_batch):
         model="gpt-4",
         messages=[
             {"role": "system", "content": "Ты — AI-ревьюер. Верни только .diff patch."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
         temperature=0.2,
-        max_tokens=1200
+        max_tokens=1200,
     )
     return response.choices[0].message.content.strip()
 
+
 def priority_sort(name):
-    if "goal_runner" in name: return 1
-    if "developer" in name: return 2
-    if "tester" in name: return 3
-    if "core/" in name: return 4
+    if "goal_runner" in name:
+        return 1
+    if "developer" in name:
+        return 2
+    if "tester" in name:
+        return 3
+    if "core/" in name:
+        return 4
     return 99
+
 
 def save_patch(content):
     os.makedirs(PATCH_DIR, exist_ok=True)
@@ -317,8 +304,10 @@ def save_patch(content):
         f.write(content)
     return filename, path
 
+
 def is_patch_valid(content):
     return content.startswith("diff --git") and "@@" in content and "--- " in content
+
 
 def repair_patch_with_gpt(content):
     print("🔧 Патч повреждён. Запрашиваем восстановление у GPT...")
@@ -332,13 +321,14 @@ def repair_patch_with_gpt(content):
         model="gpt-4",
         messages=[
             {"role": "system", "content": "Ты — AI-патчер SACI. Исправляй git-patch."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
         temperature=0.2,
-        max_tokens=1000
+        max_tokens=1000,
     )
 
     return response.choices[0].message.content.strip()
+
 
 def send_to_telegram(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -349,11 +339,11 @@ def send_to_telegram(text):
     else:
         print(f"❌ Ошибка Telegram: {response.status_code} {response.text}")
 
+
 def run_refactor():
     print("🔄 Обновляем кодовую базу перед анализом...")
     subprocess.run(["python", "saci_remote_agent.py"])
-    subprocess.run(["python", "agents/file_splitter.py"])
-    
+
     print("🧠 GPT-анализ чанков кода...")
     chunks = load_chunks()
     if not chunks:
@@ -371,13 +361,13 @@ def run_refactor():
         print("✅ Патч восстановлен GPT.")
 
     filename, path = save_patch(patch_text)
-    
+
     send_patch_with_buttons(filename)
-    generate_all_reviews_markdown(filename)
-    send_review_markdown_to_telegram(filename.replace(".patch", "").replace(".diff", ""))
+
 
 if __name__ == "__main__":
     import sys
+
     if "multi" in sys.argv:
         run_multi_pass_refactor()
     else:

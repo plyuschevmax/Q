@@ -12,6 +12,7 @@ GOAL_LOG = "logs/goals_log.json"
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+
 def log_current_goal():
     if not os.path.exists(GOAL_STATE):
         return
@@ -34,12 +35,14 @@ def log_current_goal():
 
     print("📘 Цель зафиксирована в журнале.")
 
+
 def extract_filename_from_goal(goal):
     words = goal.split()
     for word in words:
         if word.endswith((".py", ".md", ".json", ".yml", ".yaml")):
             return word
     return None
+
 
 def generate_summary_rich():
     if not os.path.exists(GOAL_LOG):
@@ -49,14 +52,18 @@ def generate_summary_rich():
         log = json.load(f)
 
     today = datetime.now().strftime("%Y-%m-%d")
-    today_goals = [g for g in log if g['timestamp'].startswith(today)]
+    today_goals = [g for g in log if g["timestamp"].startswith(today)]
 
     if not today_goals:
         return "Сегодня ещё не было активности."
 
     statuses = Counter(g["status"] for g in today_goals)
     all_goals = [g["goal"] for g in today_goals]
-    files = [extract_filename_from_goal(g["goal"]) for g in today_goals if extract_filename_from_goal(g["goal"])]
+    files = [
+        extract_filename_from_goal(g["goal"])
+        for g in today_goals
+        if extract_filename_from_goal(g["goal"])
+    ]
     extensions = [os.path.splitext(f)[-1] for f in files if f]
 
     # Находим повторяющиеся цели
@@ -76,6 +83,7 @@ def generate_summary_rich():
 
     return summary
 
+
 def send_summary_to_telegram():
     summary = generate_summary_rich()
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -85,6 +93,7 @@ def send_summary_to_telegram():
         print("📬 Дневной отчёт отправлен в Telegram.")
     else:
         print(f"❌ Ошибка Telegram: {response.status_code} {response.text}")
+
 
 if __name__ == "__main__":
     log_current_goal()

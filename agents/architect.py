@@ -1,5 +1,6 @@
 import json
 
+
 def analyze_repo_and_suggest_goal():
     with open("logs/saci_project_map.json") as f:
         structure = json.load(f)
@@ -10,4 +11,6 @@ def analyze_repo_and_suggest_goal():
     if "agents" in structure and "agent_hub.py" not in structure["agents"]:
         return "Создать agent_hub.py — координатор между стратегами, девелопером и тестером"
 
-    return "Оптимизировать структуру core/ и создать saci_memory.py для хранения состояния"
+    return (
+        "Оптимизировать структуру core/ и создать saci_memory.py для хранения состояния"
+    )

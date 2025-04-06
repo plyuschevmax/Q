@@ -4,6 +4,7 @@ from datetime import datetime
 
 LOG_PATH = "logs/code_metrics.json"
 
+
 def collect_code_metrics():
     total_lines = 0
     file_count = 0
@@ -20,8 +21,9 @@ def collect_code_metrics():
     return {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "files": file_count,
-        "lines": total_lines
+        "lines": total_lines,
     }
+
 
 def append_to_log(metrics):
     os.makedirs("logs", exist_ok=True)
@@ -33,6 +35,7 @@ def append_to_log(metrics):
     log.append(metrics)
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(log, f, indent=2)
+
 
 def show_growth():
     if not os.path.exists(LOG_PATH):
@@ -52,6 +55,7 @@ def show_growth():
     print(f"📊 Рост кода с последнего запуска:")
     print(f"+ {delta_files} файлов")
     print(f"+ {delta_lines} строк")
+
 
 if __name__ == "__main__":
     metrics = collect_code_metrics()

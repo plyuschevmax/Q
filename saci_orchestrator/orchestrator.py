@@ -1,5 +1,6 @@
 from typing import List
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
@@ -22,7 +23,7 @@ class SACIOrchestrator:
             "Generate code via AI agent",
             "Run tests against generated code",
             "Integrate code to GitHub if tests pass",
-            "Deploy to environment if integration is successful"
+            "Deploy to environment if integration is successful",
         ]
 
         print(f"[SACI Orchestrator] Planned tasks for goal '{self.current_goal}':")
@@ -47,6 +48,7 @@ class SACIOrchestrator:
         Генерирует код в зависимости от цели и отправляет файл в GitHub.
         """
         import os
+
         try:
             from github import Github
         except ImportError:
@@ -109,18 +111,31 @@ class SACIOrchestrator:
 
         try:
             from github import Github
+
             g = Github(token)
             user = g.get_user()
             repo = user.get_repo(repo_name)
             try:
                 file = repo.get_contents(filename)
-                repo.update_file(filename, f"SACI code update for goal: {self.current_goal}", content, file.sha)
-                print(f"[SACI] {filename} обновлён в GitHub. Причина: {self.current_goal}")
+                repo.update_file(
+                    filename,
+                    f"SACI code update for goal: {self.current_goal}",
+                    content,
+                    file.sha,
+                )
+                print(
+                    f"[SACI] {filename} обновлён в GitHub. Причина: {self.current_goal}"
+                )
             except:
-                repo.create_file(filename, f"SACI code create for goal: {self.current_goal}", content)
-                print(f"[SACI] {filename} создан в GitHub. Причина: {self.current_goal}")
+                repo.create_file(
+                    filename, f"SACI code create for goal: {self.current_goal}", content
+                )
+                print(
+                    f"[SACI] {filename} создан в GitHub. Причина: {self.current_goal}"
+                )
         except Exception as e:
             print(f"[SACI] Ошибка при пуше кода в GitHub: {e}")
+
 
 import os
 import requests
@@ -140,7 +155,7 @@ class GitHubAgent:
         url = f"{self.api_url}/{path}"
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.github+json"
+            "Accept": "application/vnd.github+json",
         }
 
         response = requests.get(url, headers=headers)
@@ -149,7 +164,7 @@ class GitHubAgent:
         data = {
             "message": commit_message,
             "content": base64.b64encode(content.encode()).decode(),
-            "branch": "main"
+            "branch": "main",
         }
         if sha:
             data["sha"] = sha
@@ -164,7 +179,7 @@ class GitHubAgent:
         url = f"{self.api_url}/{file}"
         headers = {
             "Authorization": f"Bearer {self.token}",
-            "Accept": "application/vnd.github+json"
+            "Accept": "application/vnd.github+json",
         }
 
         response = requests.get(url, headers=headers)
@@ -175,7 +190,7 @@ class GitHubAgent:
         data = {
             "message": commit_msg,
             "content": base64.b64encode(content.encode()).decode(),
-            "branch": "main"
+            "branch": "main",
         }
         if sha:
             data["sha"] = sha
@@ -192,12 +207,14 @@ class GitHubAgent:
         try:
             # Автокоммит локальных изменений перед pull
             subprocess.run(["git", "add", "."], check=True)
-            subprocess.run(["git", "commit", "-m", "SACI: автосохранение перед pull"], check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "SACI: автосохранение перед pull"], check=True
+            )
 
             output = subprocess.check_output(
                 ["git", "pull", "--no-rebase", "origin", "main"],
                 stderr=subprocess.STDOUT,
-                universal_newlines=True
+                universal_newlines=True,
             )
             print(f"✅ Pull успешен:\n{output}")
         except subprocess.CalledProcessError as e:
@@ -230,7 +247,7 @@ class GitHubAgent:
             self.commit_from_bot(
                 file=log_file,
                 content=updated_log,
-                message=f"Обновлён SACI-лог после коммита {file}"
+                message=f"Обновлён SACI-лог после коммита {file}",
             )
 
             self.sync_after_commit()

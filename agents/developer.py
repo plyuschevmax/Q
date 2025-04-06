@@ -1,7 +1,9 @@
+import subprocess
 import os
 import json
 
 GOAL_STATE = "saci_goal_state.json"
+
 
 def run_developer_agent():
     if not os.path.exists(GOAL_STATE):
@@ -40,12 +42,14 @@ def run_developer_agent():
     else:
         print("⚠️ Цель developer.py не распознана.")
 
+
 def extract_filename_from_goal(goal):
     words = goal.split()
     for word in words:
         if any(word.endswith(ext) for ext in [".py", ".md", ".json", ".yml", ".yaml"]):
             return word
     return None
+
 
 def generate_python_stub(filename):
     path = ensure_path(filename)
@@ -67,9 +71,10 @@ if __name__ == "__main__":
 '''
     write_file(path, content)
 
+
 def generate_py_test(filename):
     path = ensure_path(filename)
-    content = f'''import unittest
+    content = f"""import unittest
 
 class TestGenerated(unittest.TestCase):
     def test_placeholder(self):
@@ -77,13 +82,18 @@ class TestGenerated(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-'''
+"""
     write_file(path, content)
+
 
 def generate_markdown_doc(filename, goal):
     path = ensure_path(filename)
-    title = goal.split(" создать ")[-1] if "создать" in goal else filename.replace(".md", "")
-    content = f'''# {title.title()}
+    title = (
+        goal.split(" создать ")[-1]
+        if "создать" in goal
+        else filename.replace(".md", "")
+    )
+    content = f"""# {title.title()}
 
 > Автосгенерированный SACI документ по цели:
 
@@ -96,8 +106,9 @@ def generate_markdown_doc(filename, goal):
 - [ ] Определить структуру
 - [ ] Добавить описание
 - [ ] Завершить реализацию
-'''
+"""
     write_file(path, content)
+
 
 def generate_json_config(filename):
     path = ensure_path(filename)
@@ -105,13 +116,14 @@ def generate_json_config(filename):
         "name": filename.replace(".json", ""),
         "description": "",
         "version": "1.0",
-        "config": {}
+        "config": {},
     }
     write_file(path, json.dumps(default, indent=4, ensure_ascii=False))
 
+
 def generate_yaml_config(filename):
     path = ensure_path(filename)
-    content = f'''# {filename}
+    content = f"""# {filename}
 name: sample_pipeline
 description: SACI auto-generated YAML config
 steps:
@@ -119,8 +131,9 @@ steps:
     run: python analyze.py
   - name: generate
     run: python developer.py
-'''
+"""
     write_file(path, content)
+
 
 def ensure_path(filename):
     parts = filename.split("/")
@@ -129,14 +142,17 @@ def ensure_path(filename):
         os.makedirs(dir_path, exist_ok=True)
     return filename
 
+
 def write_file(path, content):
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"📦 Создан файл: {path}")
 
+
 def class_from_filename(filename):
     base = os.path.splitext(os.path.basename(filename))[0]
-    return ''.join(word.capitalize() for word in base.split("_"))
+    return "".join(word.capitalize() for word in base.split("_"))
+
 
 if __name__ == "__main__":
     run_developer_agent()

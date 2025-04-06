@@ -1,4 +1,5 @@
 # saci_web_orchestrator.py
+import dotenv
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,9 +15,11 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 class PromptInput(BaseModel):
     prompt: str
     agent: str = "architect"
+
 
 @app.get("/", response_class=HTMLResponse)
 def root():
@@ -103,6 +106,7 @@ def root():
     </html>
     """
 
+
 @app.post("/prompt")
 def receive_prompt_form(prompt: str = Form(...), agent: str = Form("architect")):
     task_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -115,7 +119,7 @@ def receive_prompt_form(prompt: str = Form(...), agent: str = Form("architect"))
         "source": "webapp",
         "task_id": task_id,
         "dev_done": False,
-        "test_done": False
+        "test_done": False,
     }
     with open("saci_goal_state.json", "w", encoding="utf-8") as f:
         json.dump(goal_state, f, indent=4, ensure_ascii=False)
@@ -123,12 +127,17 @@ def receive_prompt_form(prompt: str = Form(...), agent: str = Form("architect"))
     subprocess.Popen(["python", "agents/code_refactor.py"])
     return RedirectResponse("/", status_code=303)
 
+
 @app.post("/apply")
 def apply_patch_web():
     patch_name = None
     if os.path.exists("patches"):
-        patches = sorted([f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))])
-        patch_name = patches[-1].replace(".patch", "").replace(".diff", "") if patches else None
+        patches = sorted(
+            [f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))]
+        )
+        patch_name = (
+            patches[-1].replace(".patch", "").replace(".diff", "") if patches else None
+        )
 
     if not patch_name:
         return HTMLResponse("<p>❌ Нет доступных патчей.</p>")
@@ -140,12 +149,17 @@ def apply_patch_web():
             return RedirectResponse("/", status_code=303)
     return HTMLResponse("<p>❌ Patch не найден.</p>")
 
+
 @app.post("/agree")
 def agree_patch_web():
     patch_name = None
     if os.path.exists("patches"):
-        patches = sorted([f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))])
-        patch_name = patches[-1].replace(".patch", "").replace(".diff", "") if patches else None
+        patches = sorted(
+            [f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))]
+        )
+        patch_name = (
+            patches[-1].replace(".patch", "").replace(".diff", "") if patches else None
+        )
 
     if not patch_name:
         return HTMLResponse("<p>❌ Нет патча для согласования.</p>")
@@ -157,18 +171,21 @@ def agree_patch_web():
         with open(log_path, "r", encoding="utf-8") as f:
             log = json.load(f)
 
-    log.append({
-        "type": "patch",
-        "patch": patch_name,
-        "status": "applied",
-        "agreed": True,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
-    })
+    log.append(
+        {
+            "type": "patch",
+            "patch": patch_name,
+            "status": "applied",
+            "agreed": True,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+    )
 
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(log, f, indent=4, ensure_ascii=False)
 
     return RedirectResponse("/", status_code=303)
+
 
 @app.get("/status")
 def get_status():
@@ -178,14 +195,18 @@ def get_status():
         state = json.load(f)
     return state
 
+
 @app.get("/patch")
 def get_latest_patch():
     if not os.path.exists("patches"):
         return {"patch": None}
-    patches = sorted([f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))])
+    patches = sorted(
+        [f for f in os.listdir("patches") if f.endswith((".patch", ".diff"))]
+    )
     if not patches:
         return {"patch": None}
     return {"patch": patches[-1]}
+
 
 @app.get("/review")
 def get_review():
@@ -198,6 +219,7 @@ def get_review():
     with open(os.path.join("logs/patch_reviews", latest), "r", encoding="utf-8") as f:
         content = f.read()
     return {"review": content, "file": latest}
+
 
 @app.get("/metrics")
 def get_code_metrics():

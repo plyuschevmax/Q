@@ -1,28 +1,18 @@
-# 📦 Стандартная библиотека
-import glob
-import json
-import os
-import subprocess
-import sys
-import time
-from datetime import datetime
-
 import telebot
-# 🌐 Внешние зависимости
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from agents.code_refactor import generate_patch_review
+import os
+import sys
+import json
+import time
+import subprocess
+from datetime import datetime
 from dotenv import load_dotenv
-from telebot.types import (InlineKeyboardButton, InlineKeyboardMarkup,
-                           KeyboardButton, ReplyKeyboardMarkup)
-
-from agents.code_metrics import collect_code_metrics
-# 🤖 SACI локальные модули
-from agents.code_refactor import (generate_all_reviews_markdown,
-                                  generate_patch_review,
-                                  send_review_markdown_to_telegram)
-from agents.project_manager import generate_summary_rich
-from goal_pipeline import (get_status, process_accept, process_reject,
-                           process_scan)
-from scripts.saci_import_fixer import fix_imports_in_file
-from utils.gpt_sanitizer import split_into_safe_chunks
+from agents.code_refactor import (
+    generate_all_reviews_markdown,
+    send_review_markdown_to_telegram,
+)
 
 sys.path.append(os.path.abspath("."))
 
@@ -30,27 +20,6 @@ load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-SACI_MODE_PATH = "config/saci_mode.txt"
-
-@bot.message_handler(commands=['settings'])
-def settings(message):
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("⚡️ Автоматический", callback_data="mode:lite"),
-        InlineKeyboardButton("👁️ Полуавтоматический", callback_data="mode:manual")
-    )
-    bot.send_message(message.chat.id, f"🛠 Режим SACI: `{get_saci_mode()}`", reply_markup=markup, parse_mode="Markdown")
-
-def get_saci_mode():
-    if os.path.exists("config/saci_mode.txt"):А
-        with open(SACI_MODE_PATH, "r") as f:
-            return f.read().strip()
-    return "lite"
-
-def set_saci_mode(mode):
-    os.makedirs("config", exist_ok=True)
-    with open("config/saci_mode.txt", "w") as f:
-        f.write(mode)
 
 def safe_patch_slice(patch_text, max_chars=3000):
     lines = patch_text.splitlines(keepends=True)
@@ -63,20 +32,13 @@ def safe_patch_slice(patch_text, max_chars=3000):
         total += len(line)
     return result
 
-def saci_run(module: str, target_file: str = None):
-    import subprocess
-    import os
-    import time
 
-    print(f"🚀 SACI запускает: {module}")
-    
-    # 🧼 Auto-format (isort + black)
-    if target_file and os.path.exists(target_file):
-        print(f"🧹 Применяю isort и black к: {target_file}")
-        subprocess.run(["isort", target_file])
-        subprocess.run(["black", target_file])
+def saci_run(module: str):
+    try:
+        subprocess.Popen(["python", "-m", module])
+    except Exception as e:
+        print(f"❌ Ошибка запуска модуля {module}: {e}")
 
-    subprocess.Popen(["python", "-m", module])
 
 def send_long_text(chat_id, header, body, chunk_limit=3900):
     paragraphs = body.split("\n\n")
@@ -93,47 +55,62 @@ def send_long_text(chat_id, header, body, chunk_limit=3900):
         chunks.append(current.strip())
 
     for i, chunk in enumerate(chunks):
-        prefix = f"{header} (часть {i+1}/{len(chunks)}):\n\n" if len(chunks) > 1 else f"{header}\n\n"
+        prefix = (
+            f"{header} (часть {i+1}/{len(chunks)}):\n\n"
+            if len(chunks) > 1
+            else f"{header}\n\n"
+        )
         bot.send_message(chat_id, prefix + chunk)
 
-@bot.message_handler(commands=['panel'])
+
+@bot.message_handler(commands=["panel"])
 def patch_panel(message):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("📄 Просмотр последнего", callback_data="review:last"),
-        InlineKeyboardButton("✅ Применить", callback_data="apply:last")
+        InlineKeyboardButton("✅ Применить", callback_data="apply:last"),
     )
     markup.row(
         InlineKeyboardButton("🧪 Протестировать патч", callback_data="test:last")
-    )   
+    )
 
     markup.row(
-        InlineKeyboardButton("🧠 Architect", callback_data="review_agent:last:architect"),
-        InlineKeyboardButton("👨‍💻 Developer", callback_data="review_agent:last:developer"),
-        InlineKeyboardButton("🎯 Strategist", callback_data="review_agent:last:strategist")
+        InlineKeyboardButton(
+            "🧠 Architect", callback_data="review_agent:last:architect"
+        ),
+        InlineKeyboardButton(
+            "👨‍💻 Developer", callback_data="review_agent:last:developer"
+        ),
+        InlineKeyboardButton(
+            "🎯 Strategist", callback_data="review_agent:last:strategist"
+        ),
     )
     markup.row(
         InlineKeyboardButton("📘 Лог ревью", callback_data="review_file:last"),
         InlineKeyboardButton("🔄 Перегенерировать", callback_data="refactor:latest"),
-        InlineKeyboardButton("⏹ Остановить", callback_data="stop:auto")
+        InlineKeyboardButton("⏹ Остановить", callback_data="stop:auto"),
     )
     bot.send_message(
         message.chat.id,
         "🛠 SACI ПАНЕЛЬ: выбери действие с последним патчем:",
-        reply_markup=markup
+        reply_markup=markup,
     )
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
+    import glob
+
     data = call.data
-    CURRENT_MODE = get_saci_mode()
 
     def get_latest_patch_name():
-        patch_files = sorted([
-            f.replace(".patch", "").replace(".diff", "")
-            for f in os.listdir("patches")
-            if f.endswith((".patch", ".diff"))
-        ])
+        patch_files = sorted(
+            [
+                f.replace(".patch", "").replace(".diff", "")
+                for f in os.listdir("patches")
+                if f.endswith((".patch", ".diff"))
+            ]
+        )
         return patch_files[-1] if patch_files else None
 
     if data == "stop:auto":
@@ -143,10 +120,13 @@ def handle_callback(call):
 
     elif data == "test:last":
         bot.send_message(call.message.chat.id, "🧪 Запускаю тесты...")
+        import subprocess
+
         try:
             result = subprocess.run(
                 ["python", "-m", "unittest", "discover", "tests"],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True,
             )
             output = result.stdout + result.stderr
             if len(output) > 3900:
@@ -156,18 +136,26 @@ def handle_callback(call):
             bot.send_message(call.message.chat.id, f"❌ Ошибка запуска тестов: {e}")
 
     elif data == "refactor:latest":
-        bot.send_message(call.message.chat.id, "🔄 Запускаю multi-pass GPT рефакторинг...")
+        bot.send_message(
+            call.message.chat.id, "🔄 Запускаю multi-pass GPT рефакторинг..."
+        )
         subprocess.Popen(["python", "-m", "agents.code_refactor", "multi"], shell=False)
 
     elif data == "review_file:last":
         files = sorted(glob.glob("logs/patch_reviews/*.md"))
         if files:
             with open(files[-1], "rb") as f:
-                bot.send_document(call.message.chat.id, f, caption="📘 Последнее ревью всех агентов")
+                bot.send_document(
+                    call.message.chat.id, f, caption="📘 Последнее ревью всех агентов"
+                )
         else:
             bot.send_message(call.message.chat.id, "⚠️ Ревью не найдено.")
 
-    elif data.startswith("review:last") or data.startswith("apply:last") or data.startswith("review_agent:last"):
+    elif (
+        data.startswith("review:last")
+        or data.startswith("apply:last")
+        or data.startswith("review_agent:last")
+    ):
         latest = get_latest_patch_name()
         if not latest:
             bot.send_message(call.message.chat.id, "❌ Нет доступных патчей.")
@@ -189,8 +177,12 @@ def handle_callback(call):
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
                     text = f.read()
-                    preview = text[:3900] + "\n...\n[усечено]" if len(text) > 3900 else text
-                bot.send_message(call.message.chat.id, f"📄 Patch `{patch}`:\n\n{preview}")
+                    preview = (
+                        text[:3900] + "\n...\n[усечено]" if len(text) > 3900 else text
+                    )
+                bot.send_message(
+                    call.message.chat.id, f"📄 Patch `{patch}`:\n\n{preview}"
+                )
                 return
         bot.send_message(call.message.chat.id, "❌ Patch не найден.")
 
@@ -203,13 +195,21 @@ def handle_callback(call):
                 bot.send_message(call.message.chat.id, f"✅ Патч `{patch}` применён.")
 
                 # Генерация ревью и отправка
+                generate_all_reviews_markdown(patch)
+                send_review_markdown_to_telegram(patch)
 
                 markup = InlineKeyboardMarkup()
                 markup.add(
-                    InlineKeyboardButton("👍 Да, согласовано", callback_data=f"agree:{patch}"),
-                    InlineKeyboardButton("👎 Нет", callback_data=f"reject:{patch}")
+                    InlineKeyboardButton(
+                        "👍 Да, согласовано", callback_data=f"agree:{patch}"
+                    ),
+                    InlineKeyboardButton("👎 Нет", callback_data=f"reject:{patch}"),
                 )
-                bot.send_message(call.message.chat.id, "Согласовать патч и внести в журнал целей?", reply_markup=markup)
+                bot.send_message(
+                    call.message.chat.id,
+                    "Согласовать патч и внести в журнал целей?",
+                    reply_markup=markup,
+                )
                 return
         bot.send_message(call.message.chat.id, "❌ Patch не найден.")
 
@@ -221,13 +221,15 @@ def handle_callback(call):
             with open(log_path, "r", encoding="utf-8") as f:
                 log = json.load(f)
 
-        log.append({
-            "type": "patch",
-            "patch": patch,
-            "status": "applied",
-            "agreed": True,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
-        })
+        log.append(
+            {
+                "type": "patch",
+                "patch": patch,
+                "status": "applied",
+                "agreed": True,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            }
+        )
         with open(log_path, "w", encoding="utf-8") as f:
             json.dump(log, f, indent=4, ensure_ascii=False)
         bot.send_message(call.message.chat.id, "📘 Патч зафиксирован в журнале.")
@@ -242,25 +244,14 @@ def handle_callback(call):
         for chunk in split_into_safe_chunks(review_text):
             bot.send_message(call.message.chat.id, f"🧠 {agent.title()}:\n\n{chunk}")
 
-@bot.message_handler(commands=['start'])
+
+@bot.message_handler(commands=["start"])
 def start(message):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row(
-        KeyboardButton("/scan"),
-        KeyboardButton("/status")
-    )
-    markup.row(
-        KeyboardButton("/accept"),
-        KeyboardButton("/reject")
-    )
-    markup.row(
-        KeyboardButton("/analyze all"),
-        KeyboardButton("/refactor")
-    )
-    markup.row(
-        KeyboardButton("/summary"),
-        KeyboardButton("/log last")
-    )
+    markup.row(KeyboardButton("/scan"), KeyboardButton("/status"))
+    markup.row(KeyboardButton("/accept"), KeyboardButton("/reject"))
+    markup.row(KeyboardButton("/analyze all"), KeyboardButton("/refactor"))
+    markup.row(KeyboardButton("/summary"), KeyboardButton("/log last"))
     bot.send_message(
         message.chat.id,
         "Привет. Я SACI Telegram Interface.\n\nКоманды:\n"
@@ -272,43 +263,49 @@ def start(message):
         "/refactor — предложить патч\n"
         "/summary — дневной отчёт\n"
         "/log last — последнее действие",
-        reply_markup=markup
+        reply_markup=markup,
     )
-@bot.message_handler(commands=['scan'])
+
+
+@bot.message_handler(commands=["scan"])
 def scan(message):
-    result = process_scan()
     bot.send_message(message.chat.id, result)
 
-@bot.message_handler(commands=['accept'])
+
+@bot.message_handler(commands=["accept"])
 def accept(message):
-    result = process_accept()
     bot.send_message(message.chat.id, result)
 
-@bot.message_handler(commands=['reject'])
+
+@bot.message_handler(commands=["reject"])
 def reject(message):
-    result = process_reject()
     bot.send_message(message.chat.id, result)
 
-@bot.message_handler(commands=['status'])
+
+@bot.message_handler(commands=["status"])
 def status(message):
-    result = get_status()
     bot.send_message(message.chat.id, result)
 
-@bot.message_handler(commands=['summary'])
+
+@bot.message_handler(commands=["summary"])
 def summary(message):
     try:
+        from agents.project_manager import generate_summary_rich
+
         text = generate_summary_rich()
         bot.send_message(message.chat.id, text)
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка при генерации отчёта: {e}")
 
-@bot.message_handler(commands=['stop'])
+
+@bot.message_handler(commands=["stop"])
 def stop(message):
     with open(".saci_stop", "w") as f:
         f.write("stop")
     bot.send_message(message.chat.id, "🛑 Автопоток SACI остановлен.")
 
-@bot.message_handler(commands=['analyze'])
+
+@bot.message_handler(commands=["analyze"])
 def analyze(message):
     text = message.text.strip()
     if "all" in text:
@@ -318,35 +315,32 @@ def analyze(message):
         bot.send_message(message.chat.id, "🔍 Запускаю анализ ключевых модулей...")
         subprocess.Popen("python agents/code_analyst.py", shell=True)
 
-@bot.message_handler(commands=['apply'])
+
+@bot.message_handler(commands=["apply"])
 def apply_patch(message):
     try:
         name = message.text.replace("/apply patch", "").strip()
-        patch_variants = [
-            f"patches/{name}.diff",
-            f"patches/{name}.patch"
-        ]
+        patch_variants = [f"patches/{name}.diff", f"patches/{name}.patch"]
 
         patch_path = next((p for p in patch_variants if os.path.exists(p)), None)
 
         if not patch_path:
             all_patches = "\n".join(os.listdir("patches"))
-            bot.send_message(message.chat.id, f"❌ Патч `{name}` не найден.\n\n📂 В наличии:\n{all_patches}")
+            bot.send_message(
+                message.chat.id,
+                f"❌ Патч `{name}` не найден.\n\n📂 В наличии:\n{all_patches}",
+            )
             return
 
-        success, applied_path = apply_patch_safely(patch)
-        if success:
-            bot.send_message(call.message.chat.id, f"✅ Патч `{os.path.basename(applied_path)}` применён.")
-        else:
-            bot.send_message(call.message.chat.id, "❌ Не удалось применить даже восстановленный патч.")
-            return
-
-
-        bot.send_message(message.chat.id, f"✅ Патч `{os.path.basename(patch_path)}` применён.")
+        os.system(f"git apply {patch_path}")
+        bot.send_message(
+            message.chat.id, f"✅ Патч `{os.path.basename(patch_path)}` применён."
+        )
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка применения патча: {e}")
 
-@bot.message_handler(commands=['review'])
+
+@bot.message_handler(commands=["review"])
 def review_patch(message):
     try:
         text = message.text.replace("/review patch", "").strip()
@@ -367,6 +361,7 @@ def review_patch(message):
 
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка чтения патча: {e}")
+
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
@@ -392,6 +387,8 @@ def handle_callback(call):
         subprocess.Popen(["python", "-m", "agents.code_refactor"])
 
     elif data == "review_file:last":
+        import glob
+
         latest = sorted(glob.glob("logs/patch_reviews/*.md"))[-1]
         if latest:
             with open(latest, "rb") as f:
@@ -399,24 +396,25 @@ def handle_callback(call):
         else:
             bot.send_message(call.message.chat.id, "⚠️ Ревью не найдено.")
 
-    elif data.startswith("mode:"):
-        mode = data.split(":")[1]
-        set_saci_mode(mode)
-        bot.send_message(call.message.chat.id, f"✅ Режим SACI установлен: `{mode}`", parse_mode="Markdown")
-
     elif data.startswith("review:last"):
-        latest = sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        latest = (
+            sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        )
         call.data = f"review:{latest}"
         handle_callback(call)
 
     elif data.startswith("apply:last"):
-        latest = sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        latest = (
+            sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        )
         call.data = f"apply:{latest}"
         handle_callback(call)
 
     elif data.startswith("review_agent:last"):
         _, _, agent = data.split(":")
-        latest = sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        latest = (
+            sorted(os.listdir("patches"))[-1].replace(".patch", "").replace(".diff", "")
+        )
         call.data = f"review_agent:{latest}:{agent}"
         handle_callback(call)
 
@@ -434,14 +432,22 @@ def handle_callback(call):
             bot.send_message(call.message.chat.id, f"✅ Патч `{patch}` применён.")
 
             # 📄 Сгенерировать .md ревью от всех агентов
+            generate_all_reviews_markdown(patch)
+            send_review_markdown_to_telegram(patch)
 
             # 👍 Предложить согласование
             markup = InlineKeyboardMarkup()
             markup.add(
-                InlineKeyboardButton("👍 Да, согласовано", callback_data=f"agree:{patch}"),
-                InlineKeyboardButton("👎 Нет", callback_data=f"reject:{patch}")
+                InlineKeyboardButton(
+                    "👍 Да, согласовано", callback_data=f"agree:{patch}"
+                ),
+                InlineKeyboardButton("👎 Нет", callback_data=f"reject:{patch}"),
             )
-            bot.send_message(call.message.chat.id, "Согласовать патч и внести в журнал целей?", reply_markup=markup)
+            bot.send_message(
+                call.message.chat.id,
+                "Согласовать патч и внести в журнал целей?",
+                reply_markup=markup,
+            )
         else:
             bot.send_message(call.message.chat.id, "❌ Patch не найден.")
 
@@ -453,7 +459,12 @@ def handle_callback(call):
     elif data.startswith("view_rev:"):
         _, patch, agent = data.split(":")
         review = generate_patch_review(patch, agent)
-        send_long_text(chat_id=call.message.chat.id, header=f"🧠 Ревью от {agent.title()}:", body=review)
+        send_long_text(
+            chat_id=call.message.chat.id,
+            header=f"🧠 Ревью от {agent.title()}:",
+            body=review,
+        )
+
 
 print("🤖 SACI Telegram Bot запущен.")
 bot.polling()

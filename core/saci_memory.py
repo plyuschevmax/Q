@@ -2,6 +2,7 @@
 SACI Memory Core — отвечает за хранение краткосрочного состояния и хода выполнения целей.
 """
 
+
 class SACIMemory:
     def __init__(self):
         self.state = {}
@@ -14,6 +15,7 @@ class SACIMemory:
 
     def reset(self):
         self.state = {}
+
 
 if __name__ == "__main__":
     memory = SACIMemory()
