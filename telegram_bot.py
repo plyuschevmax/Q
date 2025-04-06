@@ -2,19 +2,20 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from agents.code_refactor import generate_patch_review
+import os
+import sys
 import json
+import time
+import subprocess
 from datetime import datetime
 from goal_pipeline import process_scan, process_accept, process_reject, get_status
-import os
 from dotenv import load_dotenv
-import subprocess
 from agents.code_refactor import (
     generate_all_reviews_markdown,
     send_review_markdown_to_telegram
 )
-import sys
-import os
 sys.path.append(os.path.abspath("."))
+from utils.gpt_sanitizer import split_into_safe_chunks
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -63,6 +64,10 @@ def patch_panel(message):
         InlineKeyboardButton("✅ Применить", callback_data="apply:last")
     )
     markup.row(
+        InlineKeyboardButton("🧪 Протестировать патч", callback_data="test:last")
+    )   
+
+    markup.row(
         InlineKeyboardButton("🧠 Architect", callback_data="review_agent:last:architect"),
         InlineKeyboardButton("👨‍💻 Developer", callback_data="review_agent:last:developer"),
         InlineKeyboardButton("🎯 Strategist", callback_data="review_agent:last:strategist")
@@ -96,9 +101,24 @@ def handle_callback(call):
             f.write("stop")
         bot.send_message(call.message.chat.id, "🛑 AutoLoop остановлен.")
 
+    elif data == "test:last":
+        bot.send_message(call.message.chat.id, "🧪 Запускаю тесты...")
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["python", "-m", "unittest", "discover", "tests"],
+                capture_output=True, text=True
+            )
+            output = result.stdout + result.stderr
+            if len(output) > 3900:
+                output = output[:3900] + "\n...\n[обрезано]"
+            bot.send_message(call.message.chat.id, f"🧪 Результат:\n\n{output}")
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"❌ Ошибка запуска тестов: {e}")
+
     elif data == "refactor:latest":
-        bot.send_message(call.message.chat.id, "🔄 Перегенерирую патч...")
-        subprocess.Popen(["python", "-m", "agents.code_refactor"])
+        bot.send_message(call.message.chat.id, "🔄 Запускаю multi-pass GPT рефакторинг...")
+        subprocess.Popen(["python", "-m", "agents.code_refactor", "multi"], shell=False)
 
     elif data == "review_file:last":
         files = sorted(glob.glob("logs/patch_reviews/*.md"))
@@ -180,8 +200,10 @@ def handle_callback(call):
 
     elif data.startswith("review_agent:"):
         _, patch, agent = data.split(":")
-        review = generate_patch_review(patch, agent)
-        send_long_text(call.message.chat.id, f"🧠 Ревью от {agent.title()}:", review)
+        review_text = generate_patch_review(patch, agent)
+
+        for chunk in split_into_safe_chunks(review_text):
+            bot.send_message(call.message.chat.id, f"🧠 {agent.title()}:\n\n{chunk}")
 
 @bot.message_handler(commands=['start'])
 def start(message):

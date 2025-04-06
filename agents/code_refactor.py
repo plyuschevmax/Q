@@ -24,6 +24,47 @@ PATCH_DIR = "patches"
 
 CHUNKS_PATH = "logs/saci_code_chunks.json"
 
+def safe_patch_slice(text, max_chars=2500):
+    lines = text.splitlines(keepends=True)
+    result = ""
+    total = 0
+    for line in lines:
+        if total + len(line) > max_chars:
+            break
+        result += line
+        total += len(line)
+    return result
+
+def run_multi_pass_refactor():
+    subprocess.run(["python", "saci_remote_agent.py"])
+    subprocess.run(["python", "-m", "agents.file_splitter_tree"])
+
+    with open("logs/saci_code_chunks.json", "r", encoding="utf-8") as f:
+        chunks = json.load(f)
+
+    batches = split_chunks_into_batches(chunks, batch_size=10)
+    combined_diff = ""
+    print(f"🔁 Обработка {len(batches)} batch'ей...")
+
+    for i, batch in enumerate(batches):
+        print(f"📦 Batch {i+1}/{len(batches)}")
+        diff = request_gpt_patch(batch)
+        combined_diff += diff + "\n\n"
+
+    # Save combined patch
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    filename = f"auto_gpt_patch_{ts}_combined.patch"
+    path = os.path.join("patches", filename)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(combined_diff)
+
+    print(f"✅ Объединённый патч сохранён: {filename}")
+    send_patch_with_buttons(filename)
+
+def split_chunks_into_batches(chunks: dict, batch_size: int = 25):
+    keys = list(chunks.keys())
+    return [dict((k, chunks[k]) for k in keys[i:i+batch_size]) for i in range(0, len(keys), batch_size)]
+
 def generate_all_reviews_markdown(patch_name):
     agents = {
         "architect": "🧠 Architect",
@@ -87,7 +128,7 @@ def generate_patch_review(patch_name, agent="architect"):
 - Что улучшает?
 - Какие плюсы?
 - Есть ли риски?
-{patch_text[:3000]}
+{safe_patch_slice(patch_text)}
 """
 
     response = openai.ChatCompletion.create(
@@ -190,37 +231,22 @@ def generate_patch_prompt(file_map):
 {file_bundle}
 """
 
-def request_gpt_patch(chunks):
-    prompt = "Ты — AI-код-инженер SACI. Ниже содержатся логические блоки кода (чанки). Проанализируй их и предложи улучшения в формате unified diff:\n\n"
-
-    selected_chunks = sorted(chunks.items(), key=lambda x: priority_sort(x[0]))
-    total_chars = 0
-    max_chars = 8000
-    included = 0
-
-    for name, content in selected_chunks:
-        sliced = content[:2000]
-        chunk_text = f"### {name} ###\n```\n{sliced}\n```\n\n"
-        if total_chars + len(chunk_text) > max_chars:
-            break
-        prompt += chunk_text
-        total_chars += len(chunk_text)
-        included += 1
-
-    prompt += "\nСгенерируй улучшения в формате unified diff (.diff). Без пояснений — только patch."
-
-    print(f"📊 Отправлено чанков: {included} / {len(chunks)}")
+def request_gpt_patch(chunks_batch):
+    prompt = "Ты — AI-архитектор. Вот чанки кода. Предложи patch в формате unified diff:\n\n"
+    for name, code in chunks_batch.items():
+        sliced = code[:2000]
+        prompt += f"### {name} ###\n```\n{sliced}\n```\n\n"
+    prompt += "\nОтвети только git patch (unified diff), без markdown, без пояснений."
 
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "Ты — AI-архитектор SACI. Возвращай patch-изменения в формате unified diff."},
+            {"role": "system", "content": "Ты — AI-ревьюер. Верни только .diff patch."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.2,
         max_tokens=1200
     )
-
     return response.choices[0].message.content.strip()
 
 def priority_sort(name):
@@ -297,5 +323,8 @@ def run_refactor():
     send_patch_with_buttons(filename)
 
 if __name__ == "__main__":
-    run_refactor()
-
+    import sys
+    if "multi" in sys.argv:
+        run_multi_pass_refactor()
+    else:
+        run_refactor()

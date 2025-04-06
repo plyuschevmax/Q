@@ -27,6 +27,9 @@
         "saci_file_map.json",
         "saci_project_map.json"
     ],
+    "logs/patch_reviews": [
+        "auto_gpt_patch_2025-04-05_19-54.md"
+    ],
     "static": [],
     "tests": [
         "test_patch_predictor.py"
