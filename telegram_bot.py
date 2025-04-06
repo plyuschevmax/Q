@@ -42,7 +42,7 @@ def settings(message):
     bot.send_message(message.chat.id, f"🛠 Режим SACI: `{get_saci_mode()}`", reply_markup=markup, parse_mode="Markdown")
 
 def get_saci_mode():
-    if os.path.exists("config/saci_mode.txt"):
+    if os.path.exists("config/saci_mode.txt"):А
         with open(SACI_MODE_PATH, "r") as f:
             return f.read().strip()
     return "lite"
@@ -334,7 +334,14 @@ def apply_patch(message):
             bot.send_message(message.chat.id, f"❌ Патч `{name}` не найден.\n\n📂 В наличии:\n{all_patches}")
             return
 
-        os.system(f"git apply {patch_path}")
+        success, applied_path = apply_patch_safely(patch)
+        if success:
+            bot.send_message(call.message.chat.id, f"✅ Патч `{os.path.basename(applied_path)}` применён.")
+        else:
+            bot.send_message(call.message.chat.id, "❌ Не удалось применить даже восстановленный патч.")
+            return
+
+
         bot.send_message(message.chat.id, f"✅ Патч `{os.path.basename(patch_path)}` применён.")
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Ошибка применения патча: {e}")
